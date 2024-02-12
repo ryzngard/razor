@@ -3,7 +3,6 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
 
 namespace Microsoft.VisualStudio.LanguageServer.ContainedLanguage.MessageInterception;
 
@@ -22,5 +21,5 @@ public abstract class InterceptorManager
     /// <param name="contentType">The content type name of the contained language where the message originated</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The message token with any applicable modifications, or null to block the message.</returns>
-    public abstract Task<JToken?> ProcessInterceptorsAsync(string methodName, JToken message, string contentType, CancellationToken cancellationToken);
+    public abstract Task<T?> ProcessInterceptorsAsync<T>(string methodName, T message, string contentType, CancellationToken cancellationToken);
 }

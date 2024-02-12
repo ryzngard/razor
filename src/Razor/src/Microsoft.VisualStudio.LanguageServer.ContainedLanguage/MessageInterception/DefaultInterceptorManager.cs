@@ -7,7 +7,6 @@ using System.ComponentModel.Composition;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
 
 namespace Microsoft.VisualStudio.LanguageServer.ContainedLanguage.MessageInterception;
 
@@ -47,7 +46,7 @@ internal sealed class DefaultInterceptorManager : InterceptorManager
         return false;
     }
 
-    public override async Task<JToken?> ProcessInterceptorsAsync(string methodName, JToken message, string contentType, CancellationToken cancellationToken)
+    public override async Task<T?> ProcessInterceptorsAsync<T>(string methodName, T message, string contentType, CancellationToken cancellationToken) where T : default
     {
         _ = message ?? throw new ArgumentNullException(nameof(message));
         if (string.IsNullOrEmpty(methodName))
@@ -70,10 +69,10 @@ internal sealed class DefaultInterceptorManager : InterceptorManager
                 if (result.UpdatedToken is null)
                 {
                     // The interceptor has blocked this message
-                    return null;
+                    return default;
                 }
 
-                message = result.UpdatedToken;
+                message = (T)result.UpdatedToken;
 
                 if (result.ChangedDocumentUri)
                 {
