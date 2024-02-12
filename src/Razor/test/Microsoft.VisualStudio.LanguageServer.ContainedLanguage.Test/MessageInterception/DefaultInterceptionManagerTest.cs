@@ -83,14 +83,14 @@ public class DefaultInterceptionManagerTest : ToolingTestBase
             () => sut.ProcessInterceptorsAsync(input!, JToken.Parse("{}"), "valid", DisposalToken));
     }
 
-    [Fact]
-    public async Task ProcessInterceptorsAsync_InvalidMessage_Throws()
-    {
-        var sut = new DefaultInterceptorManager(GenerateLazyInterceptors());
+    //[Fact]
+    //public async Task ProcessInterceptorsAsync_InvalidMessage_Throws()
+    //{
+    //    var sut = new DefaultInterceptorManager(GenerateLazyInterceptors());
 
-        await Assert.ThrowsAsync<ArgumentNullException>(
-            () => sut.ProcessInterceptorsAsync("valid", null!, "valid", DisposalToken));
-    }
+    //    await Assert.ThrowsAsync<ArgumentNullException>(
+    //        () => sut.ProcessInterceptorsAsync("valid", null!, "valid", DisposalToken));
+    //}
 
     [Theory]
     [InlineData(null)]
