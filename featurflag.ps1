@@ -12,7 +12,7 @@ if ($null -eq $flag -or '' -eq $flag) {
     throw "Specify a -flag to set"
 }
 
-if ($flag.EndsWith(("\")) {
+if ($flag.EndsWith("\")) {
   throw "Provided flag '$flag' ends with '\', which is not valid"
 }
 
@@ -61,4 +61,3 @@ if ($set) {
 else {
   &$vsRegEdit read "$vsDir" $hive HKCU $flagBase $flag dword
 }
- 
