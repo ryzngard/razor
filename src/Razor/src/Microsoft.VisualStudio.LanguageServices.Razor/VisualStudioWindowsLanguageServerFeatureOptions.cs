@@ -74,9 +74,10 @@ internal class VisualStudioWindowsLanguageServerFeatureOptions : LanguageServerF
 
         _forceRuntimeCodeGeneration = new Lazy<bool>(() =>
         {
-            var featureFlags = (IVsFeatureFlags)Package.GetGlobalService(typeof(SVsFeatureFlags));
-            var disableRazorLanguageServer = featureFlags.IsFeatureEnabled(ForceRuntimeCodeGenerationFeatureFlag, defaultValue: false);
-            return disableRazorLanguageServer;
+            // var featureFlags = (IVsFeatureFlags)Package.GetGlobalService(typeof(SVsFeatureFlags));
+            // var disableRazorLanguageServer = featureFlags.IsFeatureEnabled(ForceRuntimeCodeGenerationFeatureFlag, defaultValue: false);
+            // return disableRazorLanguageServer;
+            return true;
         });
     }
 
