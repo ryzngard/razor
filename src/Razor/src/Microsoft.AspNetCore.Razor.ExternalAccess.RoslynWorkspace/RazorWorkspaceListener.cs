@@ -2,7 +2,6 @@
 // Licensed under the MIT license. See License.txt in the project root for license information.
 
 using System.Collections.Immutable;
-using System.Diagnostics;
 using System.IO.MemoryMappedFiles;
 using Microsoft.AspNetCore.Razor.Utilities;
 using Microsoft.CodeAnalysis;
@@ -13,7 +12,6 @@ namespace Microsoft.AspNetCore.Razor.ExternalAccess.RoslynWorkspace;
 public partial class RazorWorkspaceListener : IDisposable
 {
     private static readonly TimeSpan s_debounceTime = TimeSpan.FromMilliseconds(500);
-    private static readonly int s_memoryMappedMaxMB = 100;
 
     private readonly ILogger _logger;
 
@@ -25,15 +23,18 @@ public partial class RazorWorkspaceListener : IDisposable
     private ImmutableDictionary<ProjectId, bool> _projectsWithDynamicFile = ImmutableDictionary<ProjectId, bool>.Empty;
     private readonly CancellationTokenSource _disposeTokenSource = new();
     private readonly AsyncBatchingWorkQueue<ProjectId> _workQueue;
+    private readonly Func<string, Task> _notifyMemoryMappedFileNameAsync;
+    private MemoryMappedFile? _mappedFile;
 
     // The owning process must keep track of the liftime of memory mapped files. Hold onto them until notified they
     // can be removed
     private ImmutableDictionary<string, MemoryMappedFile> _memoryMappedFiles = ImmutableDictionary<string, MemoryMappedFile>.Empty;
 
-    public RazorWorkspaceListener(ILoggerFactory loggerFactory)
+    public RazorWorkspaceListener(ILoggerFactory loggerFactory, Func<string, Task> notifyMemoryMappedFileNameAsync)
     {
         _logger = loggerFactory.CreateLogger(nameof(RazorWorkspaceListener));
         _workQueue = new(TimeSpan.FromMilliseconds(500), UpdateCurrentProjectsAsync, EqualityComparer<ProjectId>.Default, _disposeTokenSource.Token);
+        _notifyMemoryMappedFileNameAsync = notifyMemoryMappedFileNameAsync;
     }
 
     public void Dispose()
@@ -50,6 +51,8 @@ public partial class RazorWorkspaceListener : IDisposable
 
         _disposeTokenSource.Cancel();
         _disposeTokenSource.Dispose();
+        _mappedFile?.Dispose();
+        _mappedFile = null;
     }
 
     public void EnsureInitialized(Workspace workspace, string projectInfoFileName)
@@ -64,14 +67,6 @@ public partial class RazorWorkspaceListener : IDisposable
         _workspace = workspace;
         _workspace.WorkspaceChanged += Workspace_WorkspaceChanged;
     }
-
-    public class SerializedProjectInfoKey
-    {
-        required public string MemoryMappedFileName { get; init; }
-        required public MemoryMappedFile File { get; init; }
-    }
-
-    public event EventHandler<SerializedProjectInfoKey>? OnProjectInformationWritten;
 
     public void NotifyDynamicFile(ProjectId projectId)
     {
@@ -186,7 +181,10 @@ public partial class RazorWorkspaceListener : IDisposable
     {
         var solution = _workspace.AssumeNotNull().CurrentSolution;
 
-        var projectsToTryAndSerialize = projectIds.SelectAsArray(p => solution.GetProject(p)).OfType<Project>().ToImmutableArray();
+        var projectsToTryAndSerialize = projectIds
+            .SelectAsArray(p => solution.GetProject(p))
+            .OfType<Project>()
+            .ToImmutableArray();
 
         if (projectsToTryAndSerialize.Length == 0)
         {
@@ -196,42 +194,20 @@ public partial class RazorWorkspaceListener : IDisposable
         await SerializeProjectsAsync(projectsToTryAndSerialize, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task SerializeProjectsAsync(ImmutableArray<Project> projectsToTryAndSerialize, CancellationToken cancellationToken)
+    private protected virtual async Task SerializeProjectsAsync(ImmutableArray<Project> projectsToTryAndSerialize, CancellationToken cancellationToken)
     {
         var pair = await RazorProjectInfoSerializer.SerializeProjectsAsync(projectsToTryAndSerialize, _logger, cancellationToken).ConfigureAwait(false);
 
         if (pair is null)
         {
+            _logger?.LogTrace("No projects identified to serialize, returning");
             return;
         }
 
-        OnProjectInformationWritten?.Invoke(this,
-            new SerializedProjectInfoKey()
-            {
-                File = pair.Value.file,
-                MemoryMappedFileName = pair.Value.fileName
-            }
-        );
-    }
+        _logger?.LogTrace("Notifying and holding onto new mapped file {mappedFileName}", pair.Value.fileName);
+        await _notifyMemoryMappedFileNameAsync.Invoke(pair.Value.fileName).ConfigureAwait(false);
 
-    // private protected for testing
-    private protected virtual async Task<(string, MemoryMappedFile)> SerializeProjectAsync(Project project, Solution solution, CancellationToken cancellationToken)
-    {
-        var fileName = $"{project.Name}_{Guid.NewGuid()}.bin";
-        var mappedFile = MemoryMappedFile.CreateNew(fileName, s_memoryMappedMaxMB);
-        _logger?.LogTrace("Serializing information for {projectId} to mapped file {mappedFile}", project.Id, fileName);
-
-        using (var writeStream = mappedFile.CreateViewStream())
-        {
-            await RazorProjectInfoSerializer.SerializeAsync(project, writeStream, _logger, cancellationToken).ConfigureAwait(false);
-        }
-
-        OnProjectInformationWritten?.Invoke(this, new SerializedProjectInfoKey()
-        {
-            MemoryMappedFileName = fileName,
-            ProjectId = project.Id
-        });
-
-        return (fileName, mappedFile);
+        // Hold on to the most recently notified file
+        _mappedFile = pair.Value.file;
     }
 }

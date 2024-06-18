@@ -1,11 +1,10 @@
 #nullable enable
 Microsoft.AspNetCore.Razor.ExternalAccess.RoslynWorkspace.RazorWorkspaceListener
 Microsoft.AspNetCore.Razor.ExternalAccess.RoslynWorkspace.RazorWorkspaceListener.Dispose() -> void
-Microsoft.AspNetCore.Razor.ExternalAccess.RoslynWorkspace.RazorWorkspaceListener.DisposeMemoryMappedFile(string! fileName) -> void
 Microsoft.AspNetCore.Razor.ExternalAccess.RoslynWorkspace.RazorWorkspaceListener.EnsureInitialized(Microsoft.CodeAnalysis.Workspace! workspace, string! projectInfoFileName) -> void
 Microsoft.AspNetCore.Razor.ExternalAccess.RoslynWorkspace.RazorWorkspaceListener.NotifyDynamicFile(Microsoft.CodeAnalysis.ProjectId! projectId) -> void
 Microsoft.AspNetCore.Razor.ExternalAccess.RoslynWorkspace.RazorWorkspaceListener.OnProjectInformationWritten -> System.EventHandler<Microsoft.AspNetCore.Razor.ExternalAccess.RoslynWorkspace.RazorWorkspaceListener.SerializedProjectInfoKey!>?
-Microsoft.AspNetCore.Razor.ExternalAccess.RoslynWorkspace.RazorWorkspaceListener.RazorWorkspaceListener(Microsoft.Extensions.Logging.ILoggerFactory! loggerFactory) -> void
+Microsoft.AspNetCore.Razor.ExternalAccess.RoslynWorkspace.RazorWorkspaceListener.RazorWorkspaceListener(Microsoft.Extensions.Logging.ILoggerFactory! loggerFactory, System.Func<string!, System.Threading.Tasks.Task!>! notifyMemoryMappedFileNameAsync) -> void
 Microsoft.AspNetCore.Razor.ExternalAccess.RoslynWorkspace.RazorWorkspaceListener.SerializedProjectInfoKey
 Microsoft.AspNetCore.Razor.ExternalAccess.RoslynWorkspace.RazorWorkspaceListener.SerializedProjectInfoKey.MemoryMappedFileName.get -> string!
 Microsoft.AspNetCore.Razor.ExternalAccess.RoslynWorkspace.RazorWorkspaceListener.SerializedProjectInfoKey.MemoryMappedFileName.init -> void

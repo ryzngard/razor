@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.IO.MemoryMappedFiles;
 using System.Threading;
 using System.Threading.Tasks;
@@ -204,18 +205,21 @@ public class RazorWorkspaceListenerTest(ITestOutputHelper testOutputHelper) : To
         public ConcurrentDictionary<ProjectId, int> SerializeCalls => _serializeCalls;
 
         public TestRazorWorkspaceListener()
-            : base(NullLoggerFactory.Instance)
+            : base(NullLoggerFactory.Instance, (_) => Task.CompletedTask)
         {
         }
 
-        private protected override Task<(string, MemoryMappedFile)> SerializeProjectAsync(Project project, Solution solution, CancellationToken ct)
+        private protected override Task SerializeProjectsAsync(ImmutableArray<Project> projectsToTryAndSerialize, CancellationToken cancellationToken)
         {
-            _serializeCalls.AddOrUpdate(project.Id, 1, (id, curr) => curr + 1);
+            foreach (var project in projectsToTryAndSerialize)
+            {
+                _serializeCalls.AddOrUpdate(project.Id, 1, (id, curr) => curr + 1);
+            }
 
             _completionSource.TrySetResult();
             _completionSource = new();
 
-            return Task.FromResult<(string, MemoryMappedFile)>((Guid.NewGuid().ToString(), null!));
+            return Task.CompletedTask;
         }
 
         internal async Task WaitForDebounceAsync()
