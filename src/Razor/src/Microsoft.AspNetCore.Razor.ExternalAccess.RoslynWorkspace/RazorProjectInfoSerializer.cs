@@ -4,11 +4,14 @@
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+using MessagePack.Resolvers;
+using MessagePack;
 using Microsoft.AspNetCore.Razor.Language;
 using Microsoft.AspNetCore.Razor.PooledObjects;
 using Microsoft.AspNetCore.Razor.ProjectEngineHost;
 using Microsoft.AspNetCore.Razor.ProjectSystem;
 using Microsoft.AspNetCore.Razor.Serialization;
+using Microsoft.AspNetCore.Razor.Serialization.MessagePack.Resolvers;
 using Microsoft.AspNetCore.Razor.Telemetry;
 using Microsoft.AspNetCore.Razor.Utilities;
 using Microsoft.CodeAnalysis;
@@ -16,12 +19,18 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Razor;
 using Microsoft.Extensions.Logging;
+using System.IO.MemoryMappedFiles;
 
 namespace Microsoft.AspNetCore.Razor.ExternalAccess.RoslynWorkspace;
 
 internal static class RazorProjectInfoSerializer
 {
     private static readonly StringComparison s_stringComparison;
+
+    private static readonly MessagePackSerializerOptions s_options = MessagePackSerializerOptions.Standard
+        .WithResolver(CompositeResolver.Create(
+            RazorProjectInfoResolver.Instance,
+            StandardResolver.Instance));
 
     static RazorProjectInfoSerializer()
     {
@@ -30,20 +39,20 @@ internal static class RazorProjectInfoSerializer
             : StringComparison.OrdinalIgnoreCase;
     }
 
-    public static async Task SerializeAsync(Project project, Stream outputStream, ILogger? logger, CancellationToken cancellationToken)
+    public static async Task<RazorProjectInfo?> TryComputerProjectInfoAsync(Project project, ILogger? logger, CancellationToken cancellationToken)
     {
         var projectPath = Path.GetDirectoryName(project.FilePath);
         if (projectPath is null)
         {
             logger?.LogTrace("projectPath is null, skipping writing info for {projectId}", project.Id);
-            return;
+            return null;
         }
 
         var intermediateOutputPath = Path.GetDirectoryName(project.CompilationOutputInfo.AssemblyPath);
         if (intermediateOutputPath is null)
         {
             logger?.LogTrace("intermediatePath is null, skipping writing info for {projectId}", project.Id);
-            return;
+            return null;
         }
 
         // First, lets get the documents, because if there aren't any, we can skip out early
@@ -53,7 +62,7 @@ internal static class RazorProjectInfoSerializer
         if (documents.Length == 0)
         {
             logger?.LogTrace("No razor documents for {projectId}", project.Id);
-            return;
+            return null;
         }
 
         var csharpLanguageVersion = (project.ParseOptions as CSharpParseOptions)?.LanguageVersion ?? LanguageVersion.Default;
@@ -95,7 +104,7 @@ internal static class RazorProjectInfoSerializer
             projectWorkspaceState: projectWorkspaceState,
             documents: documents);
 
-        projectInfo.SerializeTo(outputStream);
+        return projectInfo;
     }
 
     private static RazorConfiguration ComputeRazorConfigurationOptions(AnalyzerConfigOptionsProvider options, ILogger? logger, out string defaultNamespace)
@@ -221,5 +230,35 @@ internal static class RazorProjectInfoSerializer
 
         razorFilePath = null;
         return false;
+    }
+
+    internal static async Task<(string fileName, MemoryMappedFile file)?> SerializeProjectsAsync(ImmutableArray<Project> projectsToTryAndSerialize, ILogger? logger, CancellationToken cancellationToken)
+    {
+        var builder = new List<RazorProjectInfo>();
+
+        foreach (var project in projectsToTryAndSerialize)
+        {
+            var info = await TryComputerProjectInfoAsync(project, logger, cancellationToken).ConfigureAwait(false);
+            if (info is null)
+            {
+                continue;
+            }
+
+            builder.Add(info);
+        }
+
+        if (builder.Count == 0)
+        {
+            return null;
+        }
+
+        var toSerialize = builder.ToArray();
+        var fileName = Path.GetRandomFileName();
+        var memoryMappedFile = MemoryMappedFile.CreateNew(fileName, 100);
+        using var stream = memoryMappedFile.CreateViewStream();
+
+        await MessagePackSerializer.SerializeAsync(stream, toSerialize, s_options, cancellationToken).ConfigureAwait(false);
+
+        return (fileName, memoryMappedFile);
     }
 }

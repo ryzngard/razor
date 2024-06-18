@@ -68,7 +68,7 @@ public partial class RazorWorkspaceListener : IDisposable
     public class SerializedProjectInfoKey
     {
         required public string MemoryMappedFileName { get; init; }
-        required public ProjectId ProjectId { get; init; }
+        required public MemoryMappedFile File { get; init; }
     }
 
     public event EventHandler<SerializedProjectInfoKey>? OnProjectInformationWritten;
@@ -88,14 +88,6 @@ public partial class RazorWorkspaceListener : IDisposable
         // Schedule a task, in case adding a dynamic file is the last thing that happens
         _logger.LogTrace("{projectId} scheduling task due to dynamic file", projectId);
         _workQueue.AddWork(projectId);
-    }
-
-    public void DisposeMemoryMappedFile(string fileName)
-    {
-        if (ImmutableInterlocked.TryRemove(ref _memoryMappedFiles, fileName, out var memoryMappedFile))
-        {
-            memoryMappedFile?.Dispose();
-        }
     }
 
     private void Workspace_WorkspaceChanged(object? sender, WorkspaceChangeEventArgs e)
@@ -194,25 +186,32 @@ public partial class RazorWorkspaceListener : IDisposable
     {
         var solution = _workspace.AssumeNotNull().CurrentSolution;
 
-        foreach (var projectId in projectIds)
+        var projectsToTryAndSerialize = projectIds.SelectAsArray(p => solution.GetProject(p)).OfType<Project>().ToImmutableArray();
+
+        if (projectsToTryAndSerialize.Length == 0)
         {
-            if (_disposeTokenSource.IsCancellationRequested)
-            {
-                return;
-            }
-
-            var project = solution.GetProject(projectId);
-            if (project is null)
-            {
-                _logger?.LogTrace("Project {projectId} is not in workspace", projectId);
-                continue;
-            }
-
-            var (fileName, mappedFile) = await SerializeProjectAsync(project, solution, cancellationToken).ConfigureAwait(false);
-
-            var success = ImmutableInterlocked.TryAdd(ref _memoryMappedFiles, fileName, mappedFile);
-            Debug.Assert(success, $"Tried to add file {fileName} to memory mapped files that already exists");
+            return;
         }
+
+        await SerializeProjectsAsync(projectsToTryAndSerialize, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task SerializeProjectsAsync(ImmutableArray<Project> projectsToTryAndSerialize, CancellationToken cancellationToken)
+    {
+        var pair = await RazorProjectInfoSerializer.SerializeProjectsAsync(projectsToTryAndSerialize, _logger, cancellationToken).ConfigureAwait(false);
+
+        if (pair is null)
+        {
+            return;
+        }
+
+        OnProjectInformationWritten?.Invoke(this,
+            new SerializedProjectInfoKey()
+            {
+                File = pair.Value.file,
+                MemoryMappedFileName = pair.Value.fileName
+            }
+        );
     }
 
     // private protected for testing
