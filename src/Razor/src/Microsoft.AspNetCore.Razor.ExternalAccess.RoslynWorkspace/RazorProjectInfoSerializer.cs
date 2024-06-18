@@ -30,7 +30,7 @@ internal static class RazorProjectInfoSerializer
             : StringComparison.OrdinalIgnoreCase;
     }
 
-    public static async Task SerializeAsync(Project project, string configurationFileName, ILogger? logger, CancellationToken cancellationToken)
+    public static async Task SerializeAsync(Project project, Stream outputStream, ILogger? logger, CancellationToken cancellationToken)
     {
         var projectPath = Path.GetDirectoryName(project.FilePath);
         if (projectPath is null)
@@ -86,8 +86,6 @@ internal static class RazorProjectInfoSerializer
 
         var projectWorkspaceState = ProjectWorkspaceState.Create(tagHelpers, csharpLanguageVersion);
 
-        var configurationFilePath = Path.Combine(intermediateOutputPath, configurationFileName);
-
         var projectInfo = new RazorProjectInfo(
             projectKey: new ProjectKey(intermediateOutputPath),
             filePath: project.FilePath!,
@@ -97,7 +95,7 @@ internal static class RazorProjectInfoSerializer
             projectWorkspaceState: projectWorkspaceState,
             documents: documents);
 
-        WriteToFile(configurationFilePath, projectInfo, logger);
+        projectInfo.SerializeTo(outputStream);
     }
 
     private static RazorConfiguration ComputeRazorConfigurationOptions(AnalyzerConfigOptionsProvider options, ILogger? logger, out string defaultNamespace)
@@ -124,38 +122,6 @@ internal static class RazorProjectInfoSerializer
         defaultNamespace = rootNamespace ?? "ASP"; // TODO: Source generator does this. Do we want it?
 
         return razorConfiguration;
-    }
-
-    private static void WriteToFile(string configurationFilePath, RazorProjectInfo projectInfo, ILogger? logger)
-    {
-        // We need to avoid having an incomplete file at any point, but our
-        // project configuration is large enough that it will be written as multiple operations.
-        var tempFilePath = string.Concat(configurationFilePath, ".temp");
-        var tempFileInfo = new FileInfo(tempFilePath);
-
-        if (tempFileInfo.Exists)
-        {
-            // This could be caused by failures during serialization or early process termination.
-            logger?.LogTrace("deleting existing file {filePath}", tempFilePath);
-            tempFileInfo.Delete();
-        }
-
-        // This needs to be in explicit brackets because the operation needs to be completed
-        // by the time we move the temp file into its place
-        using (var stream = tempFileInfo.Create())
-        {
-            projectInfo.SerializeTo(stream);
-        }
-
-        var fileInfo = new FileInfo(configurationFilePath);
-        if (fileInfo.Exists)
-        {
-            logger?.LogTrace("deleting existing file {filePath}", configurationFilePath);
-            fileInfo.Delete();
-        }
-
-        logger?.LogTrace("Moving {tmpPath} to {newPath}", tempFilePath, configurationFilePath);
-        File.Move(tempFileInfo.FullName, configurationFilePath);
     }
 
     internal static ImmutableArray<DocumentSnapshotHandle> GetDocuments(Project project, string projectPath)

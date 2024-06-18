@@ -1,7 +1,9 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the MIT license. See License.txt in the project root for license information.
 
+using System;
 using System.Collections.Concurrent;
+using System.IO.MemoryMappedFiles;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Razor.Test.Common;
@@ -206,14 +208,14 @@ public class RazorWorkspaceListenerTest(ITestOutputHelper testOutputHelper) : To
         {
         }
 
-        private protected override Task SerializeProjectAsync(Project project, Solution solution, CancellationToken ct)
+        private protected override Task<(string, MemoryMappedFile)> SerializeProjectAsync(Project project, Solution solution, CancellationToken ct)
         {
             _serializeCalls.AddOrUpdate(project.Id, 1, (id, curr) => curr + 1);
 
             _completionSource.TrySetResult();
             _completionSource = new();
 
-            return Task.CompletedTask;
+            return Task.FromResult<(string, MemoryMappedFile)>((Guid.NewGuid().ToString(), null!));
         }
 
         internal async Task WaitForDebounceAsync()
