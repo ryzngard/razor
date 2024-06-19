@@ -205,7 +205,7 @@ public class RazorWorkspaceListenerTest(ITestOutputHelper testOutputHelper) : To
         public ConcurrentDictionary<ProjectId, int> SerializeCalls => _serializeCalls;
 
         public TestRazorWorkspaceListener()
-            : base(NullLoggerFactory.Instance, (_) => Task.CompletedTask)
+            : base(NullLoggerFactory.Instance, (_, ct) => Task.CompletedTask)
         {
         }
 

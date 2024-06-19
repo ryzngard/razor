@@ -23,14 +23,10 @@ public partial class RazorWorkspaceListener : IDisposable
     private ImmutableDictionary<ProjectId, bool> _projectsWithDynamicFile = ImmutableDictionary<ProjectId, bool>.Empty;
     private readonly CancellationTokenSource _disposeTokenSource = new();
     private readonly AsyncBatchingWorkQueue<ProjectId> _workQueue;
-    private readonly Func<string, Task> _notifyMemoryMappedFileNameAsync;
+    private readonly Func<string, CancellationToken, Task> _notifyMemoryMappedFileNameAsync;
     private MemoryMappedFile? _mappedFile;
 
-    // The owning process must keep track of the liftime of memory mapped files. Hold onto them until notified they
-    // can be removed
-    private ImmutableDictionary<string, MemoryMappedFile> _memoryMappedFiles = ImmutableDictionary<string, MemoryMappedFile>.Empty;
-
-    public RazorWorkspaceListener(ILoggerFactory loggerFactory, Func<string, Task> notifyMemoryMappedFileNameAsync)
+    public RazorWorkspaceListener(ILoggerFactory loggerFactory, Func<string, CancellationToken, Task> notifyMemoryMappedFileNameAsync)
     {
         _logger = loggerFactory.CreateLogger(nameof(RazorWorkspaceListener));
         _workQueue = new(TimeSpan.FromMilliseconds(500), UpdateCurrentProjectsAsync, EqualityComparer<ProjectId>.Default, _disposeTokenSource.Token);
@@ -205,7 +201,7 @@ public partial class RazorWorkspaceListener : IDisposable
         }
 
         _logger?.LogTrace("Notifying and holding onto new mapped file {mappedFileName}", pair.Value.fileName);
-        await _notifyMemoryMappedFileNameAsync.Invoke(pair.Value.fileName).ConfigureAwait(false);
+        await _notifyMemoryMappedFileNameAsync.Invoke(pair.Value.fileName, cancellationToken).ConfigureAwait(false);
 
         // Hold on to the most recently notified file
         _mappedFile = pair.Value.file;

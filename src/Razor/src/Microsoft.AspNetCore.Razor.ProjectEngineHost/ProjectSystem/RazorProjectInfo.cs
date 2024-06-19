@@ -90,4 +90,7 @@ internal sealed record class RazorProjectInfo
 
     public static ValueTask<RazorProjectInfo> DeserializeFromAsync(Stream stream, CancellationToken cancellationToken)
         => MessagePackSerializer.DeserializeAsync<RazorProjectInfo>(stream, s_options, cancellationToken);
+
+    public static ValueTask<RazorProjectInfo[]> DeserializeMultipleFromAsync(Stream stream, CancellationToken cancellationToken)
+        => MessagePackSerializer.DeserializeAsync<RazorProjectInfo[]>(stream, s_options, cancellationToken);
 }

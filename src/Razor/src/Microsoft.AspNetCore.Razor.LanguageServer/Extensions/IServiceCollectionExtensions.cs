@@ -186,6 +186,8 @@ internal static class IServiceCollectionExtensions
 
         services.AddHandler<RazorMapToDocumentRangesEndpoint>();
         services.AddHandler<RazorLanguageQueryEndpoint>();
+
+        services.AddHandler<MemoryMappedFileBasedProjectInfoDriver>();
     }
 
     public static void AddOptionsServices(this IServiceCollection services, RazorLSPOptions currentOptions)

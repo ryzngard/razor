@@ -134,7 +134,7 @@ internal partial class RazorLanguageServer : NewtonsoftLanguageServer<RazorReque
         {
             // If the language server was not created with an IRazorProjectInfoDriver,
             // fall back to a FileWatcher-base driver.
-            services.AddSingleton<IRazorProjectInfoDriver, FileWatcherBasedRazorProjectInfoDriver>();
+            services.AddSingleton<IRazorProjectInfoDriver, MemoryMappedFileBasedProjectInfoDriver>();
         }
 
         services.AddLifeCycleServices(this, _clientConnection, _lspServerActivationTracker);
