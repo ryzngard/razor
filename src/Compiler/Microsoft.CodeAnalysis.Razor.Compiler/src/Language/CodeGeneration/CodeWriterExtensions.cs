@@ -152,6 +152,61 @@ internal static class CodeWriterExtensions
         return writer;
     }
 
+    /// <summary>
+    /// Write a using in the form of
+    /// <code>
+    /// using
+    /// #line ...
+    /// Example.Namespace
+    ///
+    /// </code>
+    ///
+    /// This makes it so the spacing is avoided for any formatting that happens on the generated code.
+    /// </summary>
+    public static void WriteMultilineUsing(this CodeWriter codeWriter, CodeRenderingContext context, SourceSpan sourceSpan, UsingDirectiveIntermediateNode node)
+    {
+        Debug.Assert(ReferenceEquals(codeWriter, context.CodeWriter));
+
+        var usingLength = "using ".Length;
+        using (codeWriter.BuildEnhancedLinePragma(sourceSpan, context, suppressLineDefaultAndHidden: !node.AppendLineDefaultAndHidden))
+        {
+            context.AddSourceMappingFor(new SourceSpan(
+                sourceSpan.FilePath,
+                sourceSpan.AbsoluteIndex,
+                sourceSpan.LineIndex,
+                sourceSpan.CharacterIndex,
+                usingLength));
+            codeWriter.WriteLine("using ");
+        }
+
+        using (codeWriter.BuildEnhancedLinePragma(sourceSpan, context, suppressLineDefaultAndHidden: !node.AppendLineDefaultAndHidden))
+        {
+            // Avoid mapping a synthetically added semi-colon
+            var semicolonMappingLength = node.Content[^1] == ';'
+                ? 0
+                : 1;
+
+            var modifiedSpan = new SourceSpan(
+                sourceSpan.FilePath,
+                sourceSpan.AbsoluteIndex + usingLength,
+                sourceSpan.LineIndex,
+                sourceSpan.CharacterIndex + usingLength,
+                node.Content.Length + semicolonMappingLength);
+
+            context.AddSourceMappingFor(modifiedSpan);
+            codeWriter.Write(node.Content);
+
+            if (semicolonMappingLength == 0)
+            {
+                codeWriter.WriteLine();
+            }
+            else
+            {
+                codeWriter.WriteLine(";");
+            }
+        }
+    }
+
     public static CodeWriter WriteEnhancedLineNumberDirective(this CodeWriter writer, SourceSpan span, int characterOffset = 0)
     {
         // All values here need to be offset by 1 since #line uses a 1-indexed numbering system.

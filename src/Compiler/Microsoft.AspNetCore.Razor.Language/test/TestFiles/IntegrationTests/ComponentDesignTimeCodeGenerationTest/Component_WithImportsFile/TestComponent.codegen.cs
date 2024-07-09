@@ -9,24 +9,24 @@ namespace Test
     using global::System.Threading.Tasks;
     using global::Microsoft.AspNetCore.Components;
 #nullable restore
-#line 1 "x:\dir\subdir\Test\_Imports.razor"
+#line (1,2)-(1,19) "x:\dir\subdir\Test\_Imports.razor"
 using 
 
 #nullable disable
 #nullable restore
-#line 1 "x:\dir\subdir\Test\_Imports.razor"
+#line (1,2)-(1,19) "x:\dir\subdir\Test\_Imports.razor"
 System.Text;
 
 #nullable disable
 #nullable restore
-#line 2 "x:\dir\subdir\Test\_Imports.razor"
+#line (2,2)-(2,25) "x:\dir\subdir\Test\_Imports.razor"
 using 
 
 #line default
 #line hidden
 #nullable disable
 #nullable restore
-#line 2 "x:\dir\subdir\Test\_Imports.razor"
+#line (2,2)-(2,25) "x:\dir\subdir\Test\_Imports.razor"
 System.Reflection;
 
 #line default
