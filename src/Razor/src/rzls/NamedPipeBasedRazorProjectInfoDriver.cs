@@ -2,7 +2,9 @@
 // Licensed under the MIT license. See License.txt in the project root for license information.
 
 using System;
+using System.Buffers;
 using System.Diagnostics;
+using System.IO;
 using System.IO.Pipes;
 using System.Threading;
 using System.Threading.Tasks;
@@ -54,7 +56,8 @@ internal sealed class NamedPipeBasedRazorProjectInfoDriver : AbstractRazorProjec
 
             try
             {
-                switch (_namedPipe.ReadProjectInfoAction())
+                var action = _namedPipe.ReadProjectInfoAction();
+                switch (action)
                 {
                     case ProjectInfoAction.Remove:
                         Logger.LogTrace($"Attempting to read project id for removal");
@@ -65,7 +68,9 @@ internal sealed class NamedPipeBasedRazorProjectInfoDriver : AbstractRazorProjec
 
                     case ProjectInfoAction.Update:
                         Logger.LogTrace($"Attempting to read project info for update");
-                        var projectInfo = await _namedPipe.ReadProjectInfoAsync(cancellationToken).ConfigureAwait(false);
+                        var positionBefore = _namedPipe.Position;
+                        var projectInfo = await ReadProjectInfoAsync(_namedPipe, cancellationToken).ConfigureAwait(false);
+                        Logger.LogTrace($"Read {_namedPipe.Position - positionBefore} bytes");
                         if (projectInfo is not null)
                         {
                             EnqueueUpdate(projectInfo);
@@ -74,13 +79,26 @@ internal sealed class NamedPipeBasedRazorProjectInfoDriver : AbstractRazorProjec
                         break;
 
                     default:
-                        throw Assumes.NotReachable();
+                        throw new InvalidOperationException($"Unexpected action byte {action}");
                 }
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex, $"{ex.Message}");
             }
+        }
+
+        async Task<RazorProjectInfo?> ReadProjectInfoAsync(Stream stream, CancellationToken cancellationToken)
+        {
+            Logger.LogTrace($"Getting size to read");
+            var sizeToRead = stream.ReadSize();
+
+            Logger.LogTrace($"Size reported is {sizeToRead}");
+            using var _ = ArrayPool<byte>.Shared.GetPooledArray(sizeToRead, out var projectInfoBytes);
+            await stream.ReadAsync(projectInfoBytes, 0, projectInfoBytes.Length, cancellationToken).ConfigureAwait(false);
+
+            Logger.LogTrace($"Deserializing project information");
+            return RazorProjectInfo.DeserializeFrom(projectInfoBytes.AsMemory());
         }
     }
 }

@@ -234,12 +234,14 @@ public abstract class RazorWorkspaceListenerBase : IDisposable
             return;
         }
 
+        _logger.LogTrace("Checking connection");
         await CheckConnectionAsync(stream, cancellationToken).ConfigureAwait(false);
         await ProcessWorkCoreAsync(work, stream, solution, _logger, cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task ProcessWorkCoreAsync(ImmutableArray<Work> work, Stream stream, Solution solution, ILogger logger, CancellationToken cancellationToken)
     {
+        logger.LogTrace("Processing work...");
         foreach (var unit in work)
         {
             try
@@ -272,7 +274,7 @@ public abstract class RazorWorkspaceListenerBase : IDisposable
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Encountered error flusingh stream");
+            logger.LogError(ex, "Encountered error flushing stream");
         }
     }
 
@@ -286,7 +288,14 @@ public abstract class RazorWorkspaceListenerBase : IDisposable
             return;
         }
 
-        await stream.WriteProjectInfoAsync(projectInfo, cancellationToken).ConfigureAwait(false);
+        logger.LogTrace($"Writing 0 for project update");
+        stream.WriteProjectInfoAction(ProjectInfoAction.Update);
+
+        var bytes = projectInfo.Serialize();
+
+        logger.LogTrace("Writing {bytes} serialized bytes of project information", bytes.Length);
+        stream.WriteSize(bytes.Length);
+        await stream.WriteAsync(bytes, 0, bytes.Length, cancellationToken).ConfigureAwait(false);
     }
 
     private static Task ReportRemovalAsync(Stream stream, RemovalWork unit, ILogger logger, CancellationToken cancellationToken)

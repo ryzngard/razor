@@ -110,7 +110,7 @@ internal static class StreamExtensions
         return RazorProjectInfo.DeserializeFrom(projectInfoBytes.AsMemory());
     }
 
-    private static void WriteSize(Stream stream, int length)
+    public static void WriteSize(this Stream stream, int length)
     {
 #if NET
         Span<byte> sizeBytes = stackalloc byte[4];
@@ -125,7 +125,7 @@ internal static class StreamExtensions
 
     }
 
-    private unsafe static int ReadSize(Stream stream)
+    public unsafe static int ReadSize(this Stream stream)
     {
 #if NET
         Span<byte> bytes = stackalloc byte[4];
