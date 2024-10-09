@@ -227,8 +227,8 @@ public class ExtractToComponentCodeActionProviderTest(ITestOutputHelper testOutp
         Assert.NotNull(razorCodeActionResolutionParams);
         var actionParams = ((JsonElement)razorCodeActionResolutionParams.Data).Deserialize<ExtractToComponentCodeActionParams>();
         Assert.NotNull(actionParams);
-        Assert.Equal(selectionSpan.Start, actionParams.ExtractStart);
-        Assert.Equal(selectionSpan.End, actionParams.ExtractEnd);
+        Assert.Equal(selectionSpan.Start, actionParams.Start);
+        Assert.Equal(selectionSpan.End, actionParams.End);
     }
 
     [Fact]
